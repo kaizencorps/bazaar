@@ -22,8 +22,16 @@ pub mod bazaar {
         Ok(())
     }
 
-    pub fn load_domain(ctx: Context<LoadDomain>) -> Result<()> {
+    pub fn load_domain(ctx: Context<LoadDomain>, admin: bool) -> Result<()> {
         msg!("loaded domain account: {}", ctx.accounts.domain.key());
+        if admin {
+            // then the authority needs to be the domain's authority
+            require!(ctx.accounts.authority.key() == ctx.accounts.domain.authority.key(), ErrorCode::NotDomainAdmin);
+        } else {
+            // then the authority needs to be the wallet we're adding
+            require!(ctx.accounts.authority.key() == *ctx.accounts.wallet.key, ErrorCode::NotSigner);
+        }
+
         Ok(())
     }
 }
@@ -54,6 +62,8 @@ pub struct LoadDomain<'info> {
     #[account(mut)]
     authority: Signer<'info>,
     system_program: Program <'info, System>,
+    /// CHECK: This is not dangerous because we don't read or write from this account
+    wallet: AccountInfo<'info>,
 }
 
 // domains are needed for admin functions
@@ -70,4 +80,13 @@ impl Domain {
     pub const MAX_SIZE: usize = 32 + 32 + 1;
 }
 
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("Signer is not a domain admin")]
+    NotDomainAdmin,
+    #[msg("Can only add wallet of signer")]
+    NotSigner,
+
+}
 
